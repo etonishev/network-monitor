@@ -1,51 +1,69 @@
-#include <iomanip>
 #include <iostream>
-#include <thread>
-#include <vector>
+#include <string>
 
 #include <boost/asio.hpp>
 #include <boost/system/error_code.hpp>
 
 using tcp = boost::asio::ip::tcp;
 
+#include <boost/beast.hpp>
+
+
+
 void log(const boost::system::error_code& ec) {
-    std::cout << '[' << std::setw(14) << std::this_thread::get_id() << "] "
-        << (ec ? "Error: " : "OK")
+
+    std::cerr << (ec ? "Error: " : "OK")
         << (ec ? ec.message() : "")
         << '\n';
-}
 
-void onConnect(const boost::system::error_code& ec) {
-    log(ec);
 }
 
 int main() {
-    std::cout << '[' << std::setw(14) << std::this_thread::get_id() << "] main\n";
 
-    boost::asio::io_context ioc { };
-    tcp::socket socket { boost::asio::make_strand(ioc) };
+    const std::string host = "ltnm.learncppthroughprojects.com";
+    const std::string port = "80";
 
-    constexpr std::size_t nThreads { 4 };
+    boost::asio::io_context ioc {};
+    tcp::socket socket { ioc };
 
-    boost::system::error_code ec;
+    boost::system::error_code ec {};
     tcp::resolver resolver { ioc };
-    auto resolveIt { resolver.resolve("www.google.com", "80", ec) };
+
+    auto resolveIt { resolver.resolve(host, port, ec) };
     if (ec) {
         log(ec);
         return -1;
     }
-    for (std::size_t idx { 0 }; idx < nThreads; ++idx)
-        socket.async_connect(*resolveIt, onConnect);
 
-    std::vector<std::thread> threads { };
-    threads.reserve(nThreads);
-    for (std::size_t idx { 0 }; idx < nThreads; ++idx) {
-        threads.emplace_back([&ioc]() {
-            ioc.run();
-        });
+    socket.connect(*resolveIt, ec);
+    if (ec) {
+        log(ec);
+        return -1;
     }
-    for (std::size_t idx { 0 }; idx < nThreads; ++idx)
-        threads[idx].join();
+
+    boost::beast::websocket::stream<boost::beast::tcp_stream> ws { std::move(socket) };
+    ws.handshake(host, "/echo", ec);
+    if (ec) {
+        log(ec);
+        return -1;
+    }
+    ws.text(true);
+    const std::string message { "Hello, world!" };
+    ws.write(boost::asio::buffer(message.c_str(), message.size()), ec);
+    if (ec) {
+        log(ec);
+        return -1;
+    }
+
+    boost::beast::flat_buffer buffer;
+    ws.read(buffer, ec);
+    if (ec) {
+        log(ec);
+        return -1;
+    }
+
+    std::cout << "Response: " << boost::beast::make_printable(buffer.data()) << '\n';
 
     return 0;
+
 }
