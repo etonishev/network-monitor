@@ -10,7 +10,7 @@ ENDIF(MSVC)
 if(EXISTS ${CMAKE_CURRENT_BINARY_DIR}/conaninfo.txt)
     list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_BINARY_DIR}")
 endif()
-find_package(Boost 1.74 REQUIRED COMPONENTS system)
+find_package(Boost 1.74 REQUIRED COMPONENTS system unit_test_framework)
 
 # Static library
 set(LIB_SOURCES 
@@ -37,6 +37,7 @@ target_include_directories(network-monitor
 # Tests
 set(TESTS_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/websocket-client.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/main.cpp"
 )
 add_executable(network-monitor-tests ${TESTS_SOURCES})
 target_compile_features(network-monitor-tests
